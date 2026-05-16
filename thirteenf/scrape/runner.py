@@ -85,15 +85,18 @@ def _save_holdings(
         """
         INSERT INTO holding_line (
           ingest_id, line_no, issuer, title_of_class, cusip, figi,
-          shares, value_as_reported, weight, source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+          shares, value_as_reported, weight, investment_discretion, other_manager,
+          source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
         ON CONFLICT(ingest_id, line_no) DO UPDATE SET
           issuer=excluded.issuer,
           title_of_class=excluded.title_of_class,
           cusip=excluded.cusip,
           figi=excluded.figi,
           shares=excluded.shares,
-          value_as_reported=excluded.value_as_reported
+          value_as_reported=excluded.value_as_reported,
+          investment_discretion=excluded.investment_discretion,
+          other_manager=excluded.other_manager
         """,
         [
             (
@@ -105,6 +108,8 @@ def _save_holdings(
                 r.get("figi"),
                 r.get("shares"),
                 r.get("value"),
+                r.get("investmentDiscretion"),
+                r.get("otherManager"),
                 source,
             )
             for r in parsed

@@ -86,6 +86,23 @@ div.stMetric [data-testid="stMetricValue"] {
     )
 
 
+def inject_section_heading_styles() -> None:
+    st.markdown(
+        """
+<style>
+.gui-section-heading {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  margin: 0;
+  padding: 0;
+}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
 def inject_holdings_select_panel_styles() -> None:
     st.markdown(
         """

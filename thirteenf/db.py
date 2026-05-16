@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS holding_line (
   shares REAL,
   value_as_reported REAL,
   weight REAL,
+  investment_discretion TEXT,
+  other_manager TEXT,
   source TEXT,
   ingested_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (ingest_id) REFERENCES ingest_record(id) ON DELETE CASCADE,
@@ -126,8 +128,10 @@ def init_db(db_path: Path) -> None:
     with sqlite3.connect(db_path) as conn:
         conn.executescript(SCHEMA)
         _migrate_ingest_record(conn)
+        _migrate_holding_line(conn)
         _migrate_cusip_ref(conn)
         backfill_value_usd_multipliers(conn)
+        backfill_holding_line_manager_fields(conn)
         conn.commit()
 
 
@@ -153,6 +157,66 @@ def _migrate_cusip_ref(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_cusip_ref_gics ON cusip_ref(gics_sector_code)"
     )
+
+
+def _migrate_holding_line(conn: sqlite3.Connection) -> None:
+    existing = {r[1] for r in conn.execute("PRAGMA table_info(holding_line)")}
+    for col, typ in (
+        ("investment_discretion", "TEXT"),
+        ("other_manager", "TEXT"),
+    ):
+        if col not in existing:
+            conn.execute(f"ALTER TABLE holding_line ADD COLUMN {col} {typ}")
+
+
+def backfill_holding_line_manager_fields(conn: sqlite3.Connection) -> int:
+    """从已存 raw XML 回填 investment_discretion / other_manager（按 line_no 对齐）。"""
+    from thirteenf.scrape.edgar import parse_information_table_xml
+
+    rows = conn.execute(
+        """
+        SELECT id, raw_path FROM ingest_record
+        WHERE status = 'complete' AND raw_path IS NOT NULL AND TRIM(raw_path) != ''
+        """
+    ).fetchall()
+    updated = 0
+    for ingest_id, raw_path in rows:
+        path = Path(raw_path)
+        if not path.is_file():
+            alt = Path.cwd() / raw_path
+            path = alt if alt.is_file() else path
+        if not path.is_file():
+            continue
+        parsed, _ = parse_information_table_xml(path.read_bytes())
+        if not parsed:
+            continue
+        for row in parsed:
+            line_no = row.get("line_no")
+            if line_no is None:
+                continue
+            disc = row.get("investmentDiscretion")
+            mgr = row.get("otherManager")
+            cur = conn.execute(
+                """
+                SELECT investment_discretion, other_manager FROM holding_line
+                WHERE ingest_id = ? AND line_no = ?
+                """,
+                (int(ingest_id), int(line_no)),
+            ).fetchone()
+            if cur is None:
+                continue
+            if cur[0] == disc and cur[1] == mgr:
+                continue
+            conn.execute(
+                """
+                UPDATE holding_line
+                SET investment_discretion = ?, other_manager = ?
+                WHERE ingest_id = ? AND line_no = ?
+                """,
+                (disc, mgr, int(ingest_id), int(line_no)),
+            )
+            updated += 1
+    return updated
 
 
 def _migrate_ingest_record(conn: sqlite3.Connection) -> None:

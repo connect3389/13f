@@ -8,15 +8,21 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from thirteenf.gui.columns import zh_df
+from thirteenf.gui.columns import (
+    HELP_HOLDINGS_TABLE_SECTION,
+    render_heading_with_help_toggle,
+    zh_df,
+)
 from thirteenf.gui.institutions import (
-    append_qoq_shares_pct,
     filer_display_name_from_inst,
     filing_label_short,
     ingest_rows_for_cik,
     institution_label,
     institution_options_df,
+    load_holding_lines_for_table,
+    prepare_holdings_display_df,
 )
+from thirteenf.value_scale import value_usd_multiplier
 from thirteenf.gui.periods import report_period_display
 from thirteenf.gui.styles import inject_holdings_select_panel_styles
 from thirteenf.gui.tab_holdings.reports import (
@@ -81,7 +87,14 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
         render_sector_flow(conn, db, cik_b, ingest_id)
         st.divider()
 
-        st.markdown("##### 筛选与持仓表")
+        aggregate = render_heading_with_help_toggle(
+            "持仓表",
+            HELP_HOLDINGS_TABLE_SECTION,
+            heading_key=f"holdings_tbl_help_{ingest_id}",
+            toggle_label="按 CUSIP 汇总",
+            toggle_key="tab_b_agg_cusip",
+            toggle_help="默认开启：同一 CUSIP 合并股数与市值并重算权重。",
+        )
         c1, c2 = st.columns(2)
         with c1:
             q = st.text_input("发行人 / 标的 关键词（可选）", key="tab_b_kw")
@@ -95,40 +108,64 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
                 key="tab_b_minw",
             )
 
-        sql = """
-SELECT h.line_no, h.issuer, h.title_of_class, h.cusip, r.ticker, h.shares,
-       h.value_as_reported, h.weight
-FROM holding_line h
-LEFT JOIN cusip_ref r ON r.cusip = TRIM(h.cusip)
-WHERE h.ingest_id = ?
-"""
-        params: list = [ingest_id]
-        if q.strip():
-            sql += " AND issuer LIKE ? ESCAPE '\\'"
-            params.append(f"%{q.strip().replace('%', '\\%').replace('_', '\\_')}%")
-        if min_pct > 0:
-            sql += " AND weight >= ?"
-            params.append(min_pct / 100.0)
-        sql += " ORDER BY weight DESC, value_as_reported DESC"
-        df_h = pd.read_sql(sql, conn, params=params)
-        if df_h.empty:
+        df_raw = load_holding_lines_for_table(
+            conn,
+            ingest_id,
+            issuer_keyword=q,
+            min_weight_pct=min_pct,
+            apply_min_weight_before_aggregate=not aggregate,
+        )
+        if df_raw.empty:
             st.warning("该记录下没有持仓行，或与筛选条件无匹配。")
             return
 
-        d = merge_tickers_from_ref(conn, df_h.copy(), "cusip")
-        if "ticker" in d.columns and "cusip" in d.columns:
-            cols = [c for c in d.columns if c != "ticker"]
-            ins_at = cols.index("cusip") + 1
-            cols = cols[:ins_at] + ["ticker"] + cols[ins_at:]
-            d = d[cols]
-        if "weight" in d.columns:
-            d["weight_pct"] = (d["weight"] * 100).round(4)
-        d = append_qoq_shares_pct(d, conn, cik_b, ingest_id)
-        if "qoq_shares_pct" in d.columns and "shares" in d.columns:
-            cols = [c for c in d.columns if c != "qoq_shares_pct"]
-            ins_at = cols.index("shares") + 1
-            cols = cols[:ins_at] + ["qoq_shares_pct"] + cols[ins_at:]
-            d = d[cols]
+        value_mult = value_usd_multiplier(conn, ingest_id)
+        n_xml = len(df_raw)
+        d = prepare_holdings_display_df(
+            df_raw,
+            conn,
+            cik_b,
+            ingest_id,
+            aggregate_by_cusip=aggregate,
+            min_weight_pct=min_pct,
+        )
+        if d.empty:
+            st.warning("汇总或筛选后无持仓行。")
+            return
+
+        d = merge_tickers_from_ref(conn, d, "cusip")
+        if aggregate:
+            show_cols = [
+                "issuer",
+                "title_of_class",
+                "cusip",
+                "ticker",
+                "shares",
+                "qoq_shares_pct",
+                "value_as_reported",
+                "weight_pct",
+                "xml_line_count",
+            ]
+        else:
+            show_cols = [
+                "line_no",
+                "issuer",
+                "title_of_class",
+                "cusip",
+                "ticker",
+                "shares",
+                "qoq_shares_pct",
+                "value_as_reported",
+                "weight_pct",
+                "investment_discretion",
+                "other_manager",
+            ]
+        show_cols = [c for c in show_cols if c in d.columns]
+        if "ticker" in show_cols and "cusip" in show_cols:
+            show_cols = [c for c in show_cols if c != "ticker"]
+            ins_at = show_cols.index("cusip") + 1
+            show_cols = show_cols[:ins_at] + ["ticker"] + show_cols[ins_at:]
+        d = d[show_cols]
         d = zh_df(d)
         st.dataframe(
             d,
@@ -138,12 +175,16 @@ WHERE h.ingest_id = ?
                 "权重": st.column_config.NumberColumn(format="%.4f"),
                 "权重（%）": st.column_config.NumberColumn(format="%.4f"),
                 "较上季股数变动（%）": st.column_config.NumberColumn(format="%.2f"),
-                "申报市值": st.column_config.NumberColumn(format="%d"),
+                "申报市值（USD）": st.column_config.NumberColumn(format="%d"),
                 "持股数量": st.column_config.NumberColumn(format="%.0f"),
+                "原文行数": st.column_config.NumberColumn(format="%.0f"),
             },
         )
+        mode = "按 CUSIP 汇总" if aggregate else "SEC 原文拆行"
         st.caption(
-            f"{inst_name} · 共 {len(df_h)} 行 · ingest_id={ingest_id} · "
+            f"{inst_name} · {mode} · 展示 {len(d)} 行"
+            f"（原文 {n_xml} 行）· ingest_id={ingest_id} · "
+            f"申报市值已换算为美元（本条报送识别乘数 ×{value_mult:g}）。"
             "「较上季股数变动」为同机构上一份 **complete** 报送、按 CUSIP 汇总股数的环比；"
             "最早一期或上季无该 CUSIP 时为空。"
         )

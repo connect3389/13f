@@ -16,11 +16,14 @@ from thirteenf.gui.analytics import (
     cached_top_new_positions,
 )
 from thirteenf.gui.columns import (
+    HELP_END_MARKET_VALUE,
+    HELP_HOLDINGS_CHANGE_SECTION,
     KPI_HELP_AUM,
     KPI_HELP_NCUSIP,
     KPI_HELP_NET_BUY,
     KPI_HELP_NET_SELL,
     column_config_left_align,
+    render_heading_with_help,
     zh_df,
 )
 from thirteenf.gui.formatters import fmt_signed_usd, fmt_usd_compact
@@ -128,10 +131,8 @@ def render_top10_new_positions(
 ) -> None:
     st.markdown("##### Top 10 新建仓（本机构）")
     st.caption(
-        "仅针对**上面选中的机构**与**当前这条报送**：与本机构上一份 **complete** 对比，"
-        "本期出现且上期没有的 CUSIP 视为新建仓，按**本机构申报市值**降序取前 10；"
-        "与上方 KPI 同一口径。"
-        "Ticker 来自 `cusip_ref`（`thirteenf-sync-cusip-refs`）。"
+        "与本机构上一份 **complete** 对比，本期新出现的 CUSIP；按季末申报市值降序取前 10。"
+        "Ticker 来自 `cusip_ref`。"
     )
     mtime = db.stat().st_mtime
     df = cached_top_new_positions(
@@ -147,11 +148,16 @@ def render_top10_new_positions(
     d = d.drop(columns=["total_value_usd"])
     d = d[["rank", "ticker", "cusip", "issuer", "title_of_class", "value_label"]]
     d = zh_df(d)
+    col_cfg = column_config_left_align(d)
+    col_cfg["季末申报市值"] = st.column_config.TextColumn(
+        alignment="left",
+        help=HELP_END_MARKET_VALUE,
+    )
     st.dataframe(
         d,
         width="stretch",
         hide_index=True,
-        column_config=column_config_left_align(d),
+        column_config=col_cfg,
     )
 
 
@@ -190,12 +196,12 @@ def render_top_holdings_change(
     filer_cik: str,
     ingest_id: int,
 ) -> None:
-    st.markdown("##### 持仓变动 Top")
-    st.caption(
-        "相对本机构上一份 **complete**：按 CUSIP **申报市值变动**（美元）排序；"
-        "左为增持最大，右为减持或清仓最大。含**新建**（上季无）、**清仓**（本季无）标签。"
-        "Ticker 来自 `cusip_ref`。"
+    render_heading_with_help(
+        "持仓变动 Top",
+        HELP_HOLDINGS_CHANGE_SECTION,
+        key=f"holdings_chg_help_{ingest_id}",
     )
+    st.caption("左：申报市值增加最多的 10 只；右：减少最多的 10 只。Ticker 来自 `cusip_ref`。")
     inject_holdings_change_styles()
     mtime = db.stat().st_mtime
     df_inc, df_dec = cached_top_holdings_change(

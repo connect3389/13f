@@ -240,6 +240,20 @@ def value_by_cusip_usd(conn: sqlite3.Connection, ingest_id: int) -> pd.Series:
     return value_by_cusip_raw(conn, ingest_id) * mult
 
 
+def apply_value_to_usd_column(
+    df: pd.DataFrame, conn: sqlite3.Connection, ingest_id: int
+) -> pd.DataFrame:
+    """将 DataFrame 中的 ``value_as_reported`` 按报送乘数换算为美元。"""
+    if df.empty or "value_as_reported" not in df.columns:
+        return df
+    mult = value_usd_multiplier(conn, ingest_id)
+    out = df.copy()
+    out["value_as_reported"] = pd.to_numeric(
+        out["value_as_reported"], errors="coerce"
+    ) * mult
+    return out
+
+
 def cusip_changes_for_filing(
     conn: sqlite3.Connection, filer_cik: str, ingest_id: int
 ) -> tuple[list[dict], int, int] | None:
@@ -296,3 +310,108 @@ def issuer_for_cusip(
         [cusip, *ingest_ids],
     ).fetchone()
     return str(row[0]).strip() if row and row[0] else cusip
+
+
+def load_holding_lines_for_table(
+    conn: sqlite3.Connection,
+    ingest_id: int,
+    *,
+    issuer_keyword: str = "",
+    min_weight_pct: float = 0.0,
+    apply_min_weight_before_aggregate: bool = False,
+) -> pd.DataFrame:
+    """读取单条报送的持仓行（含 discretion / otherManager）。"""
+    sql = """
+SELECT h.line_no, h.issuer, h.title_of_class, h.cusip, r.ticker, h.shares,
+       h.value_as_reported, h.weight, h.investment_discretion, h.other_manager
+FROM holding_line h
+LEFT JOIN cusip_ref r ON r.cusip = TRIM(h.cusip)
+WHERE h.ingest_id = ?
+"""
+    params: list = [int(ingest_id)]
+    kw = issuer_keyword.strip()
+    if kw:
+        sql += " AND h.issuer LIKE ? ESCAPE '\\'"
+        params.append(f"%{kw.replace('%', '\\%').replace('_', '\\_')}%")
+    if apply_min_weight_before_aggregate and min_weight_pct > 0:
+        sql += " AND h.weight >= ?"
+        params.append(min_weight_pct / 100.0)
+    sql += " ORDER BY h.weight DESC, h.value_as_reported DESC"
+    return pd.read_sql(sql, conn, params=params)
+
+
+def aggregate_holdings_by_cusip(df: pd.DataFrame) -> pd.DataFrame:
+    """按 CUSIP 汇总股数与申报市值；发行人/类别取市值最大行，并记录原文行数。"""
+    if df.empty:
+        return df
+    out = df.copy()
+    out["_cusip_k"] = out["cusip"].map(
+        lambda x: str(x).strip().upper() if x is not None else ""
+    )
+    out = out[out["_cusip_k"] != ""].copy()
+    if out.empty:
+        return out
+
+    rows: list[dict] = []
+    for _, g in out.groupby("_cusip_k", sort=False):
+        val = pd.to_numeric(g["value_as_reported"], errors="coerce").fillna(0)
+        pick = g.loc[val.idxmax()] if not val.empty else g.iloc[0]
+        row = {k: pick[k] for k in pick.index if k not in ("_cusip_k", "_sort_val")}
+        row["shares"] = float(pd.to_numeric(g["shares"], errors="coerce").sum())
+        row["value_as_reported"] = float(val.sum())
+        row["xml_line_count"] = int(len(g))
+        row.pop("line_no", None)
+        row.pop("investment_discretion", None)
+        row.pop("other_manager", None)
+        if "title_of_class" in g.columns:
+            uniq = {
+                str(x).strip()
+                for x in g["title_of_class"]
+                if x is not None and str(x).strip()
+            }
+            if len(uniq) > 1:
+                row["title_of_class"] = "; ".join(sorted(uniq))
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def recalculate_holdings_weight(df: pd.DataFrame) -> pd.DataFrame:
+    """按当前表内申报市值重算 weight / weight_pct。"""
+    if df.empty or "value_as_reported" not in df.columns:
+        return df
+    out = df.copy()
+    val = pd.to_numeric(out["value_as_reported"], errors="coerce").fillna(0)
+    total = float(val.sum())
+    if total > 0:
+        out["weight"] = val / total
+    else:
+        out["weight"] = np.nan
+    return out
+
+
+def prepare_holdings_display_df(
+    df: pd.DataFrame,
+    conn: sqlite3.Connection,
+    filer_cik: str,
+    ingest_id: int,
+    *,
+    aggregate_by_cusip: bool,
+    min_weight_pct: float = 0.0,
+) -> pd.DataFrame:
+    """换算美元、可选 CUSIP 汇总、重算权重、过滤最小权重、补环比。"""
+    if df.empty:
+        return df
+    d = df.copy()
+    if aggregate_by_cusip:
+        d = aggregate_holdings_by_cusip(d)
+        d = apply_value_to_usd_column(d, conn, ingest_id)
+        d = recalculate_holdings_weight(d)
+        if min_weight_pct > 0 and "weight" in d.columns:
+            d = d[d["weight"] >= min_weight_pct / 100.0].copy()
+    else:
+        if min_weight_pct > 0 and "weight" in d.columns:
+            d = d[d["weight"] >= min_weight_pct / 100.0].copy()
+        d = apply_value_to_usd_column(d, conn, ingest_id)
+    if "weight" in d.columns:
+        d["weight_pct"] = (pd.to_numeric(d["weight"], errors="coerce") * 100).round(4)
+    return append_qoq_shares_pct(d, conn, filer_cik, ingest_id)
