@@ -1,0 +1,28 @@
+[project]
+name = "thirteenf"
+version = "0.1.0"
+description = "13F scrape + local SQLite (analysis/report later)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+browser = ["playwright>=1.40"]
+gui = ["streamlit>=1.30,<2", "yfinance>=0.2", "altair>=5"]
+
+[project.scripts]
+thirteenf-scrape = "thirteenf.cli:main"
+thirteenf-sync-cusip-refs = "thirteenf.cusip_ref:cli_main"
+thirteenf-sync-gics-sectors = "thirteenf.sector_sync:cli_main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["thirteenf"]

@@ -1,0 +1,21 @@
+# SEC EDGAR 抓取：每行至少 cik；display_name 等可选
+# defaults.name_verify: off | warn | fail（可选；CLI --name-verify 优先）
+# https://aum13f.com/ cik查询站点
+defaults:
+  refresh_policy: missing_only
+
+filers:
+  - cik: "0002045724"
+    display_name: Situational Awareness Lp
+  - cik: "0001697748"
+    display_name: ARK Investment Management LLC
+  - cik: "0001067983"
+    display_name: BERKSHIRE HATHAWAY INC
+  - cik: "0001052192"
+    display_name: Cascade Investment (Bill Gates)
+  - cik: "0001336528"
+    display_name: Pershing Square Capital Management (Bill Ackman)
+  - cik: "0001387322"
+    display_name: Whale Rock Capital Management LLC
+  - cik: "0001061165"
+    display_name: Lone Pine Capital LLC

@@ -1,0 +1,149 @@
+"""Tab：报表分析（机构 + complete 报送 → 分析报告 + 持仓表）。"""
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+import pandas as pd
+import streamlit as st
+
+from thirteenf.gui.columns import zh_df
+from thirteenf.gui.institutions import (
+    append_qoq_shares_pct,
+    filer_display_name_from_inst,
+    filing_label_short,
+    ingest_rows_for_cik,
+    institution_label,
+    institution_options_df,
+)
+from thirteenf.gui.periods import report_period_display
+from thirteenf.gui.styles import inject_holdings_select_panel_styles
+from thirteenf.gui.tab_holdings.reports import (
+    render_kpi_banner,
+    render_sector_flow,
+    render_top_holdings_change,
+    render_top10_new_positions,
+)
+from thirteenf.gui.ticker import merge_tickers_from_ref
+
+
+def render(conn: sqlite3.Connection, db: Path) -> None:
+    df_inst_b = institution_options_df(conn, ["complete"])
+    if df_inst_b.empty:
+        st.info("没有可展示持仓的机构（需至少一条 status=complete）。")
+        return
+
+    inject_holdings_select_panel_styles()
+
+    with st.container(border=True, key="holdings_tab_selectors"):
+        st.markdown("##### 1. 选择机构")
+        st.caption("仅列出至少有一条 **complete** 报送的 CIK。")
+        ib = st.selectbox(
+            "机构",
+            range(len(df_inst_b)),
+            format_func=lambda i: institution_label(df_inst_b.iloc[int(i)]),
+            label_visibility="collapsed",
+            key="tab_b_inst",
+        )
+        cik_b = str(df_inst_b.iloc[int(ib)]["cik"])
+
+        df_filings = ingest_rows_for_cik(conn, cik_b, statuses=["complete"])
+        st.markdown("##### 2. 选择报送（complete）")
+        if df_filings.empty:
+            st.warning("该机构下没有 complete 报送。")
+            return
+
+        ifi = st.selectbox(
+            "报送",
+            range(len(df_filings)),
+            format_func=lambda i: filing_label_short(df_filings.iloc[int(i)]),
+            label_visibility="collapsed",
+            key="tab_b_filing",
+        )
+        filing_row = df_filings.iloc[int(ifi)]
+        ingest_id = int(filing_row["id"])
+        period_label = report_period_display(filing_row.get("report_date"))
+        inst_name = filer_display_name_from_inst(df_inst_b.iloc[int(ib)])
+
+    with st.container(border=True, key="holdings_tab_report"):
+        st.markdown("#### 分析报告")
+        render_kpi_banner(
+            db, cik_b, ingest_id,
+            institution_name=inst_name,
+            period_label=period_label,
+        )
+        st.divider()
+        render_top10_new_positions(conn, db, cik_b, ingest_id)
+        st.divider()
+        render_top_holdings_change(conn, db, cik_b, ingest_id)
+        st.divider()
+        render_sector_flow(conn, db, cik_b, ingest_id)
+        st.divider()
+
+        st.markdown("##### 筛选与持仓表")
+        c1, c2 = st.columns(2)
+        with c1:
+            q = st.text_input("发行人 / 标的 关键词（可选）", key="tab_b_kw")
+        with c2:
+            min_pct = st.number_input(
+                "最小持仓权重 %（0 表示不过滤）",
+                min_value=0.0,
+                max_value=100.0,
+                value=0.0,
+                step=0.05,
+                key="tab_b_minw",
+            )
+
+        sql = """
+SELECT h.line_no, h.issuer, h.title_of_class, h.cusip, r.ticker, h.shares,
+       h.value_as_reported, h.weight
+FROM holding_line h
+LEFT JOIN cusip_ref r ON r.cusip = TRIM(h.cusip)
+WHERE h.ingest_id = ?
+"""
+        params: list = [ingest_id]
+        if q.strip():
+            sql += " AND issuer LIKE ? ESCAPE '\\'"
+            params.append(f"%{q.strip().replace('%', '\\%').replace('_', '\\_')}%")
+        if min_pct > 0:
+            sql += " AND weight >= ?"
+            params.append(min_pct / 100.0)
+        sql += " ORDER BY weight DESC, value_as_reported DESC"
+        df_h = pd.read_sql(sql, conn, params=params)
+        if df_h.empty:
+            st.warning("该记录下没有持仓行，或与筛选条件无匹配。")
+            return
+
+        d = merge_tickers_from_ref(conn, df_h.copy(), "cusip")
+        if "ticker" in d.columns and "cusip" in d.columns:
+            cols = [c for c in d.columns if c != "ticker"]
+            ins_at = cols.index("cusip") + 1
+            cols = cols[:ins_at] + ["ticker"] + cols[ins_at:]
+            d = d[cols]
+        if "weight" in d.columns:
+            d["weight_pct"] = (d["weight"] * 100).round(4)
+        d = append_qoq_shares_pct(d, conn, cik_b, ingest_id)
+        if "qoq_shares_pct" in d.columns and "shares" in d.columns:
+            cols = [c for c in d.columns if c != "qoq_shares_pct"]
+            ins_at = cols.index("shares") + 1
+            cols = cols[:ins_at] + ["qoq_shares_pct"] + cols[ins_at:]
+            d = d[cols]
+        d = zh_df(d)
+        st.dataframe(
+            d,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "权重": st.column_config.NumberColumn(format="%.4f"),
+                "权重（%）": st.column_config.NumberColumn(format="%.4f"),
+                "较上季股数变动（%）": st.column_config.NumberColumn(format="%.2f"),
+                "申报市值": st.column_config.NumberColumn(format="%d"),
+                "持股数量": st.column_config.NumberColumn(format="%.0f"),
+            },
+        )
+        st.caption(
+            f"{inst_name} · 共 {len(df_h)} 行 · ingest_id={ingest_id} · "
+            "「较上季股数变动」为同机构上一份 **complete** 报送、按 CUSIP 汇总股数的环比；"
+            "最早一期或上季无该 CUSIP 时为空。"
+        )
