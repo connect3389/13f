@@ -37,6 +37,7 @@ from thirteenf.gui.tab_holdings.reports import (
     render_top10_new_positions,
 )
 from thirteenf.gui.ticker import merge_tickers_from_ref
+from thirteenf.gui.widgets import pick_selectbox
 
 
 def render(conn: sqlite3.Connection, db: Path) -> None:
@@ -51,7 +52,7 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
         st.markdown("##### 1. 选择机构")
         st.caption("仅列出至少有一条 **complete** 报送的 CIK。")
         inst_rev = institution_ui_revision()
-        ib = st.selectbox(
+        ib = pick_selectbox(
             "机构",
             range(len(df_inst_b)),
             format_func=lambda i: institution_label(df_inst_b.iloc[int(i)]),
@@ -74,7 +75,7 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
             st.warning("该机构下没有 complete 报送。")
             return
 
-        ifi = st.selectbox(
+        ifi = pick_selectbox(
             "报送",
             range(len(df_filings)),
             format_func=lambda i: filing_label_short(df_filings.iloc[int(i)]),

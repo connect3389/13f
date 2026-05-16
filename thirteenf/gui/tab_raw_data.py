@@ -13,6 +13,7 @@ from thirteenf.gui.institutions import (
     institution_label,
     institution_options_df,
 )
+from thirteenf.gui.widgets import pick_selectbox
 
 
 def _render_json_or_text(title: str, raw: str | None) -> None:
@@ -35,7 +36,7 @@ def render(conn: sqlite3.Connection) -> None:
 
     st.markdown("##### 1. 选择机构")
     st.caption("显示至少有一条报送记录的机构。")
-    ic = st.selectbox(
+    ic = pick_selectbox(
         "机构",
         range(len(df_inst)),
         format_func=lambda i: institution_label(df_inst.iloc[int(i)]),
@@ -50,7 +51,7 @@ def render(conn: sqlite3.Connection) -> None:
         st.warning("该机构下没有报送记录。")
         return
 
-    ici = st.selectbox(
+    ici = pick_selectbox(
         "报送",
         range(len(df_raw)),
         format_func=lambda i: filing_label_short(df_raw.iloc[int(i)], show_status=True),

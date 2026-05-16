@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from thirteenf.gui.columns import column_config_left_align, zh_df
+from thirteenf.gui.widgets import pick_selectbox
 from thirteenf.gui.institution_delete import (
     institution_ui_revision,
     render_institution_delete_panel,
@@ -37,7 +38,7 @@ def render(conn: sqlite3.Connection) -> None:
         return
 
     inst_rev = institution_ui_revision()
-    ia = st.selectbox(
+    ia = pick_selectbox(
         "选择机构",
         range(len(df_inst)),
         format_func=lambda i: institution_label_row(df_inst.iloc[int(i)]),

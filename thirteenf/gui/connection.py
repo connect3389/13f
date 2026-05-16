@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -24,3 +25,11 @@ def resolve_db(path_str: str) -> Path:
     if not p.is_absolute():
         p = (Path.cwd() / p).resolve()
     return p
+
+
+def default_db_path() -> Path:
+    """固定本地库路径；可用环境变量 ``THIRTEENF_DB`` 覆盖（无 GUI 切换）。"""
+    raw = os.environ.get("THIRTEENF_DB", "").strip()
+    if raw:
+        return resolve_db(raw)
+    return resolve_db(str(Path.cwd() / "data" / "13f_history.sqlite"))
