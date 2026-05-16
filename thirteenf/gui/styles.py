@@ -126,6 +126,53 @@ html[data-theme="dark"] div[data-testid="stVerticalBlockBorderWrapper"] {
     )
 
 
+def inject_top10_table_styles() -> None:
+    """Top 10 新建仓自定义表：统一字号与字体，避免 $ 被 Markdown 当成公式导致换行。"""
+    st.markdown(
+        """
+<style>
+.top10-cell {
+  font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 0.8125rem !important;
+  font-weight: 400 !important;
+  line-height: 1.35 !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal !important;
+}
+.top10-cell--hdr {
+  font-weight: 600 !important;
+}
+.top10-cell--nowrap {
+  white-space: nowrap !important;
+}
+.top10-cell--muted {
+  opacity: 0.72;
+  font-size: 0.75rem !important;
+}
+.top10-cell--ok {
+  color: rgb(21, 128, 61);
+  font-weight: 500;
+  white-space: nowrap !important;
+}
+html[data-theme="dark"] .top10-cell--ok {
+  color: #4ade80;
+}
+.top10-cell--err {
+  color: #b45309;
+  font-size: 0.75rem !important;
+  white-space: nowrap !important;
+  cursor: help;
+}
+html[data-theme="dark"] .top10-cell--err {
+  color: #fbbf24;
+}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
 def inject_holdings_change_styles() -> None:
     st.markdown(
         """
@@ -136,6 +183,7 @@ def inject_holdings_change_styles() -> None:
   border-radius: 10px;
   padding: 0.65rem 0.75rem 0.55rem;
   min-height: 4.5rem;
+  overflow: visible;
 }
 html[data-theme="dark"] .holdings-chg-card {
   background: rgba(255, 255, 255, 0.04);
@@ -145,6 +193,7 @@ html[data-theme="dark"] .holdings-chg-card {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.35rem 1rem;
+  overflow: visible;
 }
 .holdings-chg-row {
   display: flex;
@@ -166,6 +215,65 @@ html[data-theme="dark"] .holdings-chg-card {
   font-weight: 600;
   min-width: 3.2rem;
   flex-shrink: 0;
+}
+.holdings-chg-tip-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  cursor: help;
+  min-width: 3.2rem;
+}
+.holdings-chg-tip-wrap .holdings-chg-ticker {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(0, 0, 0, 0.35);
+}
+html[data-theme="dark"] .holdings-chg-tip-wrap .holdings-chg-ticker {
+  text-decoration-color: rgba(255, 255, 255, 0.45);
+}
+.holdings-chg-tip-wrap--new .holdings-chg-ticker {
+  text-decoration-color: #16a34a;
+}
+html[data-theme="dark"] .holdings-chg-tip-wrap--new .holdings-chg-ticker {
+  text-decoration-color: #4ade80;
+}
+.holdings-chg-tip-wrap--out .holdings-chg-ticker {
+  text-decoration-color: #dc2626;
+}
+html[data-theme="dark"] .holdings-chg-tip-wrap--out .holdings-chg-ticker {
+  text-decoration-color: #f87171;
+}
+.holdings-chg-tip-bubble {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9999;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.3;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  transition: opacity 0.12s ease, visibility 0.12s ease;
+}
+html[data-theme="dark"] .holdings-chg-tip-bubble {
+  background: #262730;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.holdings-chg-tip-wrap:hover .holdings-chg-tip-bubble,
+.holdings-chg-tip-wrap:focus-within .holdings-chg-tip-bubble {
+  visibility: visible;
+  opacity: 1;
 }
 .holdings-chg-amt {
   font-weight: 600;

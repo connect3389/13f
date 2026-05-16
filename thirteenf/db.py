@@ -76,6 +76,35 @@ CREATE TABLE IF NOT EXISTS holding_line (
 
 CREATE INDEX IF NOT EXISTS idx_holding_cusip ON holding_line(cusip);
 
+CREATE TABLE IF NOT EXISTS price_daily (
+  ticker TEXT NOT NULL,
+  trade_date TEXT NOT NULL,
+  open REAL,
+  high REAL,
+  low REAL,
+  close REAL,
+  volume REAL,
+  source TEXT NOT NULL DEFAULT 'yfinance',
+  fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (ticker, trade_date, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_price_daily_ticker_date
+  ON price_daily(ticker, trade_date);
+
+CREATE TABLE IF NOT EXISTS price_fetch_meta (
+  id INTEGER PRIMARY KEY,
+  ticker TEXT NOT NULL,
+  from_date TEXT NOT NULL,
+  to_date TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'yfinance',
+  status TEXT NOT NULL,
+  row_count INTEGER,
+  error_note TEXT,
+  fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(ticker, from_date, to_date, source)
+);
+
 CREATE TABLE IF NOT EXISTS cusip_ref (
   cusip TEXT NOT NULL PRIMARY KEY,
   ticker TEXT,
@@ -129,6 +158,7 @@ def init_db(db_path: Path) -> None:
         conn.executescript(SCHEMA)
         _migrate_ingest_record(conn)
         _migrate_holding_line(conn)
+        _migrate_price_tables(conn)
         _migrate_cusip_ref(conn)
         backfill_value_usd_multipliers(conn)
         backfill_holding_line_manager_fields(conn)
@@ -156,6 +186,39 @@ def _migrate_cusip_ref(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE cusip_ref ADD COLUMN {col} {typ}")
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_cusip_ref_gics ON cusip_ref(gics_sector_code)"
+    )
+
+
+def _migrate_price_tables(conn: sqlite3.Connection) -> None:
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS price_daily (
+          ticker TEXT NOT NULL,
+          trade_date TEXT NOT NULL,
+          open REAL,
+          high REAL,
+          low REAL,
+          close REAL,
+          volume REAL,
+          source TEXT NOT NULL DEFAULT 'yfinance',
+          fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (ticker, trade_date, source)
+        );
+        CREATE INDEX IF NOT EXISTS idx_price_daily_ticker_date
+          ON price_daily(ticker, trade_date);
+        CREATE TABLE IF NOT EXISTS price_fetch_meta (
+          id INTEGER PRIMARY KEY,
+          ticker TEXT NOT NULL,
+          from_date TEXT NOT NULL,
+          to_date TEXT NOT NULL,
+          source TEXT NOT NULL DEFAULT 'yfinance',
+          status TEXT NOT NULL,
+          row_count INTEGER,
+          error_note TEXT,
+          fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(ticker, from_date, to_date, source)
+        );
+        """
     )
 
 
@@ -227,6 +290,8 @@ def _migrate_ingest_record(conn: sqlite3.Connection) -> None:
         ("name_verify_status", "TEXT"),
         ("name_verify_detail", "TEXT"),
         ("value_usd_multiplier", "REAL"),
+        ("prices_synced_at", "TEXT"),
+        ("prices_sync_report_date", "TEXT"),
     ):
         if col not in existing:
             conn.execute(f"ALTER TABLE ingest_record ADD COLUMN {col} {typ}")

@@ -16,7 +16,6 @@ from thirteenf.gui.analytics import (
     cached_top_new_positions,
 )
 from thirteenf.gui.columns import (
-    HELP_END_MARKET_VALUE,
     HELP_HOLDINGS_CHANGE_SECTION,
     KPI_HELP_AUM,
     KPI_HELP_NCUSIP,
@@ -28,7 +27,10 @@ from thirteenf.gui.columns import (
 )
 from thirteenf.gui.formatters import fmt_signed_usd, fmt_usd_compact
 from thirteenf.gui.styles import inject_holdings_change_styles, inject_kpi_metric_styles
-from thirteenf.gui.ticker import merge_tickers_from_ref
+from thirteenf.gui.ticker import merge_tickers_from_ref, ticker_symbol_for_cusip
+from thirteenf.gui.top10_new_table import render_top10_new_positions_table
+from thirteenf.prices.coverage import QuarterPriceStatus, quarter_price_status
+from thirteenf.prices.ranges import format_price_range_label
 
 
 def render_kpi_banner(
@@ -132,7 +134,7 @@ def render_top10_new_positions(
     st.markdown("##### Top 10 新建仓（本机构）")
     st.caption(
         "与本机构上一份 **complete** 对比，本期新出现的 CUSIP；按季末申报市值降序取前 10。"
-        "Ticker 来自 `cusip_ref`。"
+        "Ticker 来自 `cusip_ref`；季内行情在上方 **同步行情开启计算** 后展示（Yahoo / yfinance）。"
     )
     mtime = db.stat().st_mtime
     df = cached_top_new_positions(
@@ -143,26 +145,65 @@ def render_top10_new_positions(
             "该机构对当前报送**无上季 complete 可比**，或无非新建仓 / 无满足条件的持仓。"
         )
         return
-    d = merge_tickers_from_ref(conn, df.copy(), "cusip")
-    d["value_label"] = d["total_value_usd"].map(fmt_usd_compact)
-    d = d.drop(columns=["total_value_usd"])
-    d = d[["rank", "ticker", "cusip", "issuer", "title_of_class", "value_label"]]
-    d = zh_df(d)
-    col_cfg = column_config_left_align(d)
-    col_cfg["季末申报市值"] = st.column_config.TextColumn(
-        alignment="left",
-        help=HELP_END_MARKET_VALUE,
+    row = conn.execute(
+        "SELECT report_date FROM ingest_record WHERE id = ?",
+        (int(ingest_id),),
+    ).fetchone()
+    report_date = row[0] if row else None
+    render_top10_new_positions_table(
+        conn,
+        df,
+        ingest_id=int(ingest_id),
+        report_date_raw=report_date,
     )
-    st.dataframe(
-        d,
-        width="stretch",
-        hide_index=True,
-        column_config=col_cfg,
+
+
+def _quarter_price_hover_label(
+    conn: sqlite3.Connection,
+    cusip: str,
+    report_date_raw: object,
+) -> str | None:
+    sym = ticker_symbol_for_cusip(conn, cusip)
+    check = quarter_price_status(conn, sym, report_date_raw)
+    if check.status == QuarterPriceStatus.READY and check.range is not None:
+        return format_price_range_label(check.range)
+    return None
+
+
+def _holdings_chg_ticker_html(
+    conn: sqlite3.Connection,
+    row: pd.Series,
+    report_date_raw: object,
+    label: str,
+) -> str:
+    """有季内行情缓存时显示 CSS 气泡（不用 title，避免 DOMPurify 剥离）。"""
+    tip = _quarter_price_hover_label(
+        conn, str(row.get("cusip", "")), report_date_raw
     )
+    if tip:
+        tag = str(row.get("tag") or "").strip()
+        if tag == "新建":
+            tag_cls = " holdings-chg-tip-wrap--new"
+        elif tag == "清仓":
+            tag_cls = " holdings-chg-tip-wrap--out"
+        else:
+            tag_cls = ""
+        tip_esc = html.escape(tip)
+        return (
+            f'<span class="holdings-chg-tip-wrap{tag_cls}">'
+            f'<span class="holdings-chg-ticker">{label}</span>'
+            f'<span class="holdings-chg-tip-bubble">{tip_esc}</span>'
+            "</span>"
+        )
+    return f'<span class="holdings-chg-ticker">{label}</span>'
 
 
 def _build_holdings_change_card_html(
-    conn: sqlite3.Connection, df: pd.DataFrame, *, variant: str
+    conn: sqlite3.Connection,
+    df: pd.DataFrame,
+    *,
+    variant: str,
+    report_date_raw: object,
 ) -> str:
     if df.empty:
         return '<p class="holdings-chg-empty">—</p>'
@@ -180,10 +221,13 @@ def _build_holdings_change_card_html(
             if tag
             else ""
         )
+        ticker_html = _holdings_chg_ticker_html(
+            conn, r, report_date_raw, label
+        )
         rows.append(
             f'<div class="holdings-chg-row holdings-chg-row--{variant}">'
             f'<span class="holdings-chg-dot"></span>'
-            f'<span class="holdings-chg-ticker">{label}</span>'
+            f"{ticker_html}"
             f'<span class="holdings-chg-amt">{amt}</span>{tag_html}</div>'
         )
     inner = "".join(rows)
@@ -201,7 +245,6 @@ def render_top_holdings_change(
         HELP_HOLDINGS_CHANGE_SECTION,
         key=f"holdings_chg_help_{ingest_id}",
     )
-    st.caption("左：申报市值增加最多的 10 只；右：减少最多的 10 只。Ticker 来自 `cusip_ref`。")
     inject_holdings_change_styles()
     mtime = db.stat().st_mtime
     df_inc, df_dec = cached_top_holdings_change(
@@ -211,12 +254,19 @@ def render_top_holdings_change(
         st.info("该报送无上季 **complete** 可比，或本期相对上季无市值变动。")
         return
 
+    row = conn.execute(
+        "SELECT report_date FROM ingest_record WHERE id = ?",
+        (int(ingest_id),),
+    ).fetchone()
+    report_date = row[0] if row else None
+
     col_inc, col_dec = st.columns(2)
     with col_inc:
         st.markdown('<p class="holdings-chg-panel-title">增持 Top</p>', unsafe_allow_html=True)
-        st.markdown(
-            _build_holdings_change_card_html(conn, df_inc, variant="inc"),
-            unsafe_allow_html=True,
+        st.html(
+            _build_holdings_change_card_html(
+                conn, df_inc, variant="inc", report_date_raw=report_date
+            )
         )
     with col_dec:
         st.markdown(
@@ -224,9 +274,10 @@ def render_top_holdings_change(
             "减持 / 清仓 Top</p>",
             unsafe_allow_html=True,
         )
-        st.markdown(
-            _build_holdings_change_card_html(conn, df_dec, variant="dec"),
-            unsafe_allow_html=True,
+        st.html(
+            _build_holdings_change_card_html(
+                conn, df_dec, variant="dec", report_date_raw=report_date
+            )
         )
 
 

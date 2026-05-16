@@ -68,3 +68,20 @@ def merge_tickers_from_ref(
 
     out["ticker"] = out.apply(_display_ticker, axis=1)
     return out
+
+
+def ticker_symbol_for_cusip(conn: sqlite3.Connection, cusip: object) -> str | None:
+    """OpenFIGI 映射的交易所 Ticker（大写），无则 None。"""
+    if cusip is None or (isinstance(cusip, float) and np.isnan(cusip)):
+        return None
+    k = str(cusip).strip().upper()
+    if not k:
+        return None
+    row = conn.execute(
+        "SELECT ticker FROM cusip_ref WHERE TRIM(cusip) = TRIM(?)",
+        (k,),
+    ).fetchone()
+    if not row or row[0] is None:
+        return None
+    s = str(row[0]).strip().upper()
+    return s if s and s != "NAN" else None

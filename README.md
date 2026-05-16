@@ -38,6 +38,9 @@ cp .env.example .env
 | `THIRTEENF_SEC_USER_AGENT` | 访问 SEC EDGAR（**必填**） |
 | `OPENFIGI_API_KEY` | OpenFIGI 限流放宽（可选） |
 | `THIRTEENF_SEC_DELAY` | SEC 请求间隔秒数（默认约 0.12） |
+| `PRICE_DEBUG` | 设为 `1` 时在终端打印 yfinance 拉取日志 |
+
+Top 10「季内行情区间」使用 **Yahoo Finance（yfinance）**，需 `uv sync --extra gui`。调试：`uv run python -m thirteenf.prices.debug_cli AVGO 2026-01-01 2026-03-31`
 
 ---
 

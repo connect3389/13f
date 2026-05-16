@@ -25,6 +25,11 @@ from thirteenf.gui.institutions import (
 from thirteenf.value_scale import value_usd_multiplier
 from thirteenf.gui.periods import report_period_display
 from thirteenf.gui.styles import inject_holdings_select_panel_styles
+from thirteenf.gui.filing_price_sync import render_analysis_report_heading
+from thirteenf.gui.institution_delete import (
+    institution_ui_revision,
+    render_institution_delete_panel,
+)
 from thirteenf.gui.tab_holdings.reports import (
     render_kpi_banner,
     render_sector_flow,
@@ -45,14 +50,23 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
     with st.container(border=True, key="holdings_tab_selectors"):
         st.markdown("##### 1. 选择机构")
         st.caption("仅列出至少有一条 **complete** 报送的 CIK。")
+        inst_rev = institution_ui_revision()
         ib = st.selectbox(
             "机构",
             range(len(df_inst_b)),
             format_func=lambda i: institution_label(df_inst_b.iloc[int(i)]),
             label_visibility="collapsed",
-            key="tab_b_inst",
+            key=f"tab_b_inst_{inst_rev}",
         )
-        cik_b = str(df_inst_b.iloc[int(ib)]["cik"])
+        row_inst_b = df_inst_b.iloc[int(ib)]
+        cik_b = str(row_inst_b["cik"])
+        disp_b = row_inst_b.get("display_name")
+        render_institution_delete_panel(
+            conn,
+            cik_b,
+            str(disp_b) if disp_b is not None and str(disp_b).strip() else None,
+            key_prefix="tab_b",
+        )
 
         df_filings = ingest_rows_for_cik(conn, cik_b, statuses=["complete"])
         st.markdown("##### 2. 选择报送（complete）")
@@ -65,7 +79,7 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
             range(len(df_filings)),
             format_func=lambda i: filing_label_short(df_filings.iloc[int(i)]),
             label_visibility="collapsed",
-            key="tab_b_filing",
+            key=f"tab_b_filing_{inst_rev}_{cik_b}",
         )
         filing_row = df_filings.iloc[int(ifi)]
         ingest_id = int(filing_row["id"])
@@ -73,7 +87,7 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
         inst_name = filer_display_name_from_inst(df_inst_b.iloc[int(ib)])
 
     with st.container(border=True, key="holdings_tab_report"):
-        st.markdown("#### 分析报告")
+        render_analysis_report_heading(conn, ingest_id)
         render_kpi_banner(
             db, cik_b, ingest_id,
             institution_name=inst_name,

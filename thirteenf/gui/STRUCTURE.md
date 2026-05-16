@@ -10,6 +10,8 @@ uv run streamlit run thirteenf/gui/browse.py
 
 侧栏可改 SQLite 路径（默认 `data/13f_history.sqlite`）。路径解析与连接缓存在 `connection.py`。
 
+行情：Yahoo / **yfinance**（需 `uv sync --extra gui`）；日线缓存在 `price_daily`，Top10「季内行情区间」未覆盖本季时显示拉取按钮。
+
 ## 界面 Tab
 
 | Tab | 模块 | 说明 |
@@ -26,7 +28,8 @@ thirteenf/gui/
 ├── connection.py          # resolve_db / connect / @st.cache_resource 连接
 ├── columns.py             # 列名中文化、KPI 帮助文案、dataframe 列对齐配置
 ├── formatters.py          # 金额紧凑显示、带符号 USD
-├── periods.py             # 13F 日历年季度：report_date → Qx · 季初–季末
+├── periods.py             # 13F 日历年季度展示（底层见 thirteenf/report_period.py）
+├── top10_new_table.py     # Top10 新建仓表 + 季内行情列（按需 yfinance 拉取）
 ├── institutions.py        # 机构列表、报送列表、QoQ 股数、CUSIP 市值变动（纯 SQL/ pandas）
 ├── analytics.py           # KPI / Top10 新建仓 / 变动 Top / GICS 行业流（含 @st.cache_data）
 ├── ticker.py              # 从 cusip_ref 合并 Ticker 展示列

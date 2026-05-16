@@ -16,11 +16,13 @@ from pathlib import Path
 import streamlit as st
 
 from thirteenf.db import init_db
+from thirteenf.envload import load_dotenv_if_present
 from thirteenf.gui.connection import cached_conn, resolve_db
 from thirteenf.gui import tab_holdings, tab_raw_data, tab_registry
 
 
 def main() -> None:
+    load_dotenv_if_present()
     st.set_page_config(page_title="13F 本地库", layout="wide")
     st.title("13F 本地库")
 

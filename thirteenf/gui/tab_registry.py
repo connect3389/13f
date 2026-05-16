@@ -8,6 +8,10 @@ import pandas as pd
 import streamlit as st
 
 from thirteenf.gui.columns import column_config_left_align, zh_df
+from thirteenf.gui.institution_delete import (
+    institution_ui_revision,
+    render_institution_delete_panel,
+)
 from thirteenf.gui.institutions import institution_label_row, tab_a_institution_list
 
 
@@ -32,13 +36,23 @@ def render(conn: sqlite3.Connection) -> None:
                 )
         return
 
+    inst_rev = institution_ui_revision()
     ia = st.selectbox(
         "选择机构",
         range(len(df_inst)),
         format_func=lambda i: institution_label_row(df_inst.iloc[int(i)]),
-        key="tab_a_inst",
+        key=f"tab_a_inst_{inst_rev}",
     )
-    cik_a = str(df_inst.iloc[int(ia)]["cik"])
+    row_inst = df_inst.iloc[int(ia)]
+    cik_a = str(row_inst["cik"])
+    disp_a = row_inst.get("display_name")
+
+    render_institution_delete_panel(
+        conn,
+        cik_a,
+        str(disp_a) if disp_a is not None and str(disp_a).strip() else None,
+        key_prefix="tab_a",
+    )
 
     reg_row = pd.read_sql(
         """
