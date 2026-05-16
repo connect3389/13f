@@ -49,7 +49,10 @@ def render_analysis_report_heading(
 
     if clicked and need_sync:
         if not price_fetch_available():
-            st.error("未安装 yfinance，请执行：uv sync --extra gui")
+            st.error(
+                "未安装 yfinance。本地请执行 `uv sync --extra gui`；"
+                "在线部署请确认仓库根目录 `requirements.txt` 已包含 yfinance 并重新部署。"
+            )
             return
         prog = st.progress(0.0, text="准备同步…")
 

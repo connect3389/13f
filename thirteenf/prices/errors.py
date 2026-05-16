@@ -10,7 +10,10 @@ def user_message_for_fetch_error(error_note: str | None) -> str:
     note = str(error_note)
 
     if note == "yfinance_not_installed":
-        return "未安装 yfinance，请执行：uv sync --extra gui"
+        return (
+            "未安装 yfinance（本地：uv sync --extra gui；"
+            "在线部署：requirements.txt 需含 yfinance）"
+        )
 
     if note.startswith("yfinance_error:"):
         return f"Yahoo 行情拉取失败：{note.split(':', 1)[-1]}"

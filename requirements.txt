@@ -1,0 +1,9 @@
+# Streamlit Community Cloud / pip 部署用（含季内行情 yfinance）
+# 本地开发：uv sync --extra gui
+streamlit>=1.30,<2
+yfinance>=0.2
+altair>=5
+pandas>=2.2
+python-dotenv>=1.0
+pyyaml>=6.0
+requests>=2.31
