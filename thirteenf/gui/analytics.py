@@ -11,10 +11,10 @@ import streamlit as st
 from thirteenf.gui.formatters import fmt_signed_usd, fmt_usd_compact
 from thirteenf.gui.institutions import (
     cusip_changes_for_filing,
-    ingest_value_sum_thousands,
+    ingest_value_sum_usd,
     issuer_for_cusip,
     prior_complete_ingest_id,
-    value_by_cusip_kusd,
+    value_by_cusip_usd,
 )
 
 
@@ -53,10 +53,9 @@ def compute_kpis_for_filing(
         return {**empty, "ingest_id": cid}
 
     date_cur = str(meta[1]).strip() if meta[1] else None
-    cur_v = value_by_cusip_kusd(conn, cid)
+    cur_v = value_by_cusip_usd(conn, cid)
     n_cusips = len([x for x in cur_v.index if str(x).strip()])
-    aum_k = ingest_value_sum_thousands(conn, cid)
-    aum_usd = float(aum_k) * 1000.0
+    aum_usd = ingest_value_sum_usd(conn, cid)
 
     pid = prior_complete_ingest_id(conn, cik, cid)
     if pid is None:
@@ -75,11 +74,11 @@ def compute_kpis_for_filing(
         (pid,),
     ).fetchone()
     date_prev = str(prow[0]).strip() if prow and prow[0] else None
-    prev_k = ingest_value_sum_thousands(conn, pid)
+    prev_usd = ingest_value_sum_usd(conn, pid)
 
     aum_qoq_pct: float | None = None
-    if prev_k > 0:
-        aum_qoq_pct = (aum_k - prev_k) / prev_k * 100.0
+    if prev_usd > 0:
+        aum_qoq_pct = (aum_usd - prev_usd) / prev_usd * 100.0
 
     flow_pack = cusip_changes_for_filing(conn, cik, cid)
     flow: dict[str, float] = {}
@@ -144,16 +143,16 @@ def compute_top_new_positions(
     if pid is None:
         return pd.DataFrame()
 
-    cur_v = value_by_cusip_kusd(conn, cid)
-    prev_v = value_by_cusip_kusd(conn, pid)
+    cur_v = value_by_cusip_usd(conn, cid)
+    prev_v = value_by_cusip_usd(conn, pid)
     prev_set = set(prev_v.index)
 
     items: list[tuple[str, float]] = []
-    for cusip, val_k in cur_v.items():
+    for cusip, val_usd in cur_v.items():
         c = str(cusip).strip()
         if not c or c in prev_set:
             continue
-        vu = float(val_k or 0) * 1000.0
+        vu = float(val_usd or 0)
         if vu <= 0:
             continue
         items.append((c, vu))

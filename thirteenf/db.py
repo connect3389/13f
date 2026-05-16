@@ -127,6 +127,7 @@ def init_db(db_path: Path) -> None:
         conn.executescript(SCHEMA)
         _migrate_ingest_record(conn)
         _migrate_cusip_ref(conn)
+        backfill_value_usd_multipliers(conn)
         conn.commit()
 
 
@@ -161,9 +162,35 @@ def _migrate_ingest_record(conn: sqlite3.Connection) -> None:
         ("verified_cover_name", "TEXT"),
         ("name_verify_status", "TEXT"),
         ("name_verify_detail", "TEXT"),
+        ("value_usd_multiplier", "REAL"),
     ):
         if col not in existing:
             conn.execute(f"ALTER TABLE ingest_record ADD COLUMN {col} {typ}")
+
+
+def backfill_value_usd_multipliers(conn: sqlite3.Connection) -> int:
+    """为缺少乘数的 complete 报送推断并写入。返回更新行数。"""
+    from thirteenf.value_scale import infer_value_usd_multiplier, load_holdings_pairs
+
+    rows = conn.execute(
+        """
+        SELECT id FROM ingest_record
+        WHERE status = 'complete'
+          AND (value_usd_multiplier IS NULL OR value_usd_multiplier NOT IN (1, 1000))
+        """
+    ).fetchall()
+    n = 0
+    for (iid,) in rows:
+        pairs = load_holdings_pairs(conn, int(iid))
+        if not pairs:
+            continue
+        mult = infer_value_usd_multiplier(pairs)
+        conn.execute(
+            "UPDATE ingest_record SET value_usd_multiplier = ? WHERE id = ?",
+            (mult, int(iid)),
+        )
+        n += 1
+    return n
 
 
 @contextmanager

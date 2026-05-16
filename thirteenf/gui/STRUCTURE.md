@@ -16,8 +16,7 @@ uv run streamlit run thirteenf/gui/browse.py
 |-----|------|------|
 | 机构与报送 | `tab_registry.py` | `filer_registry`、按 CIK 筛选的 `ingest_record`；**不做**持仓聚合 |
 | 报表分析 | `tab_holdings/` | 选机构 + **complete** 报送 → 分析报告 + 可筛选持仓表 |
-
-「原始 JSON」Tab 已移除；告警等长字段如需查看请直接查库或后续单独加工具页。
+| 原始数据 | `tab_raw_data.py` | 选机构 + 任意报送 → `warnings_json`、`name_verify_detail` 只读 |
 
 ## 目录与职责
 
@@ -33,6 +32,7 @@ thirteenf/gui/
 ├── ticker.py              # 从 cusip_ref 合并 Ticker 展示列
 ├── styles.py              # KPI 等高、边框面板、变动卡片等 CSS 注入
 ├── tab_registry.py        # Tab「机构与报送」渲染
+├── tab_raw_data.py        # Tab「原始数据」：告警与校验 JSON
 └── tab_holdings/
     ├── __init__.py        # 导出 render(conn, db)
     ├── page.py            # Tab 布局：选择器 + 报告区 + 持仓表
@@ -75,7 +75,7 @@ flowchart TB
 
 - **机构**：`filer_registry` + 仅在 `ingest_record` 出现过的「孤儿」CIK（`institutions.tab_a_institution_list`）。
 - **报表分析 Tab**：仅 `status = 'complete'` 的报送；环比、净买卖、行业流均相对**同一机构**上一份 **complete**（`prior_complete_ingest_id`）。
-- **申报市值**：`holding_line.value_as_reported` 为千美元，展示与 KPI 计算中 ×1000 为美元。
+- **申报市值**：`holding_line.value_as_reported` 为 XML 原始 `value`；`ingest_record.value_usd_multiplier`（`1` 或 `1000`）由 `thirteenf/value_scale.py` 按持股推算单价推断，KPI/环比/行业流均换算为美元。
 - **Ticker**：`cusip_ref.ticker`，需 `thirteenf-sync-cusip-refs`。
 - **GICS 一级行业流**：`cusip_ref.gics_*`，需 `thirteenf-sync-gics-sectors`；OpenFIGI 不提供 GICS。
 

@@ -7,6 +7,8 @@ import sqlite3
 import numpy as np
 import pandas as pd
 
+from thirteenf.value_scale import value_usd_multiplier
+
 
 def tab_a_institution_list(conn: sqlite3.Connection) -> pd.DataFrame:
     reg = pd.read_sql(
@@ -189,7 +191,7 @@ def append_qoq_shares_pct(
     return out
 
 
-def ingest_value_sum_thousands(conn: sqlite3.Connection, ingest_id: int) -> float:
+def ingest_value_sum_raw(conn: sqlite3.Connection, ingest_id: int) -> float:
     r = conn.execute(
         """
         SELECT COALESCE(SUM(value_as_reported), 0)
@@ -201,7 +203,18 @@ def ingest_value_sum_thousands(conn: sqlite3.Connection, ingest_id: int) -> floa
     return float(r[0] or 0)
 
 
-def value_by_cusip_kusd(conn: sqlite3.Connection, ingest_id: int) -> pd.Series:
+def ingest_value_sum_usd(conn: sqlite3.Connection, ingest_id: int) -> float:
+    return ingest_value_sum_raw(conn, ingest_id) * value_usd_multiplier(
+        conn, ingest_id
+    )
+
+
+def ingest_value_sum_thousands(conn: sqlite3.Connection, ingest_id: int) -> float:
+    """兼容旧名：返回库内原始 value 合计（未乘单位）。"""
+    return ingest_value_sum_raw(conn, ingest_id)
+
+
+def value_by_cusip_raw(conn: sqlite3.Connection, ingest_id: int) -> pd.Series:
     df = pd.read_sql(
         """
         SELECT TRIM(cusip) AS cusip, SUM(value_as_reported) AS val
@@ -217,6 +230,16 @@ def value_by_cusip_kusd(conn: sqlite3.Connection, ingest_id: int) -> pd.Series:
     return df.set_index("cusip")["val"].astype(float)
 
 
+def value_by_cusip_kusd(conn: sqlite3.Connection, ingest_id: int) -> pd.Series:
+    """兼容旧名：按 CUSIP 汇总的库内原始 value（未乘单位）。"""
+    return value_by_cusip_raw(conn, ingest_id)
+
+
+def value_by_cusip_usd(conn: sqlite3.Connection, ingest_id: int) -> pd.Series:
+    mult = value_usd_multiplier(conn, ingest_id)
+    return value_by_cusip_raw(conn, ingest_id) * mult
+
+
 def cusip_changes_for_filing(
     conn: sqlite3.Connection, filer_cik: str, ingest_id: int
 ) -> tuple[list[dict], int, int] | None:
@@ -228,15 +251,15 @@ def cusip_changes_for_filing(
     if pid is None:
         return None
 
-    cur_v = value_by_cusip_kusd(conn, cid)
-    prev_v = value_by_cusip_kusd(conn, pid)
+    cur_v = value_by_cusip_usd(conn, cid)
+    prev_v = value_by_cusip_usd(conn, pid)
     changes: list[dict] = []
     for cusip in set(cur_v.index) | set(prev_v.index):
         c = str(cusip).strip()
         if not c:
             continue
-        cur_usd = float(cur_v.get(cusip, 0) or 0) * 1000.0
-        prev_usd = float(prev_v.get(cusip, 0) or 0) * 1000.0
+        cur_usd = float(cur_v.get(cusip, 0) or 0)
+        prev_usd = float(prev_v.get(cusip, 0) or 0)
         chg = cur_usd - prev_usd
         if abs(chg) < 1e-6 and cur_usd <= 0 and prev_usd <= 0:
             continue

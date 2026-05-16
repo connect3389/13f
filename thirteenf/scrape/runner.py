@@ -11,6 +11,7 @@ from thirteenf import PARSER_VERSION
 from thirteenf.config import FilerEntry, effective_name_verify_mode
 from thirteenf.db import connect
 from thirteenf.scrape import edgar
+from thirteenf.value_scale import infer_multiplier_from_parsed_rows
 from thirteenf.scrape.name_verify import (
     extract_filing_manager_name_from_primary_html,
     verify_filer_identity,
@@ -296,10 +297,12 @@ def run_edgar_for_watchlist(
                 else:
                     conn.execute("DELETE FROM holding_line WHERE ingest_id=?", (ingest_id,))
                     _save_holdings(conn, ingest_id, rows, "edgar_xml")
+                    value_mult = infer_multiplier_from_parsed_rows(rows)
                     conn.execute(
                         """
                         UPDATE ingest_record SET status=?, raw_path=?, raw_sha256=?,
-                          row_count=?, warnings_json=?, downloaded_at=datetime('now')
+                          row_count=?, warnings_json=?, downloaded_at=datetime('now'),
+                          value_usd_multiplier=?
                         WHERE id=?
                         """,
                         (
@@ -308,6 +311,7 @@ def run_edgar_for_watchlist(
                             sha,
                             len(rows),
                             json.dumps(warns, ensure_ascii=False),
+                            value_mult,
                             ingest_id,
                         ),
                     )

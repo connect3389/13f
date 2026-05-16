@@ -9,9 +9,9 @@ KPI_HELP_NCUSIP = """中文：当前这条 **complete** 报送中，有持仓行
 
 English: Count of distinct **CUSIPs** in this **selected** complete filing (after line-level aggregation by CUSIP)."""
 
-KPI_HELP_AUM = """中文：**仅本条报送**：`holding_line` 申报市值字段加总（XML 一般为千美元，页面 ×1000 为美元）。若有上一份 **complete**，delta 为相对该期的总值环比 %。
+KPI_HELP_AUM = """中文：**仅本条报送**：`holding_line` 申报市值按报送自动识别单位后换算为美元合计（历史 XML 多为千美元，近年部分 filer 为美元）。若有上一份 **complete**，delta 为相对该期的总值环比 %。
 
-English: **This filing only**: sum of reported position values (USD). **QoQ %** compares total reported value vs this filer’s **prior** complete filing, if any."""
+English: **This filing only**: sum of reported position values (USD, per-filing unit detection). **QoQ %** compares total vs this filer’s **prior** complete filing, if any."""
 
 KPI_HELP_NET_BUY = """中文：相对**该机构上一份 complete**，按 CUSIP 的申报市值差额（美元）；**单机构**本期净增加最大的标的。
 

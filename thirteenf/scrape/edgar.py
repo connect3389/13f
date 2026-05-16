@@ -145,7 +145,8 @@ def _root_from_content(content: bytes) -> tuple[ET.Element | None, list[str]]:
 def parse_information_table_xml(content: bytes) -> tuple[list[dict[str, Any]], list[str]]:
     """
     Parse 13F informationTable XML into row dicts.
-    Value field: 绝大多数历史报送在 XML 中仍以「千美元」口径出现；若个别新政后全为美元，需在 Notebook 层核对比例。
+    Value field: 历史多为「千美元」，近年部分 filer（如 Berkshire）为「美元」；入库后由
+    ``value_scale.infer_multiplier_from_parsed_rows`` 写入 ``ingest_record.value_usd_multiplier``。
     """
     warnings: list[str] = []
     root, w0 = _root_from_content(content)

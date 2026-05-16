@@ -11,4 +11,5 @@
 - ``styles`` — 页面 CSS 注入
 - ``tab_registry`` — 「机构与报送」Tab
 - ``tab_holdings`` — 「报表分析」Tab（``reports`` 为分析区块）
+- ``tab_raw_data`` — 「原始数据」Tab（JSON / 长文本字段）
 """
