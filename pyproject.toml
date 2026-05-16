@@ -9,10 +9,14 @@ dependencies = [
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
     "requests>=2.31",
+    "streamlit>=1.30,<2",
+    "yfinance>=0.2",
+    "altair>=5",
 ]
 
 [project.optional-dependencies]
 browser = ["playwright>=1.40"]
+# 与主依赖相同；保留便于文档中的 uv sync --extra gui
 gui = ["streamlit>=1.30,<2", "yfinance>=0.2", "altair>=5"]
 
 [project.scripts]

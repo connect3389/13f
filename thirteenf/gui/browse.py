@@ -41,6 +41,15 @@ div[data-baseweb="select"] input[aria-autocomplete="list"] {
         st.stop()
     init_db(db)
 
+    from thirteenf.prices.fetch import price_fetch_available
+
+    if not price_fetch_available():
+        st.error(
+            "当前运行环境无法加载 yfinance。请确认已安装依赖并 **Reboot** 应用："
+            "本地 `uv sync`；在线部署需 `requirements.txt` 含 yfinance 或 `pip install .` 后重建。"
+        )
+        st.stop()
+
     conn = cached_conn(str(db))
 
     tab_a, tab_b, tab_c = st.tabs(["机构与报送", "报表分析", "原始数据"])

@@ -1319,10 +1319,13 @@ name = "thirteenf"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "altair" },
     { name = "pandas" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "requests" },
+    { name = "streamlit" },
+    { name = "yfinance" },
 ]
 
 [package.optional-dependencies]
@@ -1337,13 +1340,16 @@ gui = [
 
 [package.metadata]
 requires-dist = [
+    { name = "altair", specifier = ">=5" },
     { name = "altair", marker = "extra == 'gui'", specifier = ">=5" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.40" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.31" },
+    { name = "streamlit", specifier = ">=1.30,<2" },
     { name = "streamlit", marker = "extra == 'gui'", specifier = ">=1.30,<2" },
+    { name = "yfinance", specifier = ">=0.2" },
     { name = "yfinance", marker = "extra == 'gui'", specifier = ">=0.2" },
 ]
 provides-extras = ["browser", "gui"]

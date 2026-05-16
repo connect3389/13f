@@ -9,10 +9,10 @@ from thirteenf.prices.bars import DailyBar
 
 def yfinance_available() -> bool:
     try:
-        import yfinance  # noqa: F401
+        import yfinance as yf  # noqa: F401
 
-        return True
-    except ImportError:
+        return callable(getattr(yf, "Ticker", None))
+    except Exception:
         return False
 
 
