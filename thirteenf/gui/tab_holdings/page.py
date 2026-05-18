@@ -17,8 +17,9 @@ from thirteenf.gui.institutions import (
     filer_display_name_from_inst,
     filing_label_short,
     ingest_rows_for_cik,
-    institution_label,
-    institution_options_df,
+    ingest_status_counts,
+    institution_picker_df,
+    institution_picker_label,
     load_holding_lines_for_table,
     prepare_holdings_display_df,
 )
@@ -41,21 +42,23 @@ from thirteenf.gui.widgets import pick_selectbox
 
 
 def render(conn: sqlite3.Connection, db: Path) -> None:
-    df_inst_b = institution_options_df(conn, ["complete"])
+    df_inst_b = institution_picker_df(conn)
     if df_inst_b.empty:
-        st.info("没有可展示持仓的机构（需至少一条 status=complete）。")
+        st.info("尚无机构。请配置 watchlist 并运行抓取。")
         return
 
     inject_holdings_select_panel_styles()
 
     with st.container(border=True, key="holdings_tab_selectors"):
         st.markdown("##### 1. 选择机构")
-        st.caption("仅列出至少有一条 **complete** 报送的 CIK。")
+        st.caption(
+            "含 watchlist 与库内全部机构；后缀 **无 complete** / **未抓取** 表示尚不能做报表分析。"
+        )
         inst_rev = institution_ui_revision()
         ib = pick_selectbox(
             "机构",
             range(len(df_inst_b)),
-            format_func=lambda i: institution_label(df_inst_b.iloc[int(i)]),
+            format_func=lambda i: institution_picker_label(df_inst_b.iloc[int(i)]),
             label_visibility="collapsed",
             key=f"tab_b_inst_{inst_rev}",
         )
@@ -72,7 +75,16 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
         df_filings = ingest_rows_for_cik(conn, cik_b, statuses=["complete"])
         st.markdown("##### 2. 选择报送（complete）")
         if df_filings.empty:
-            st.warning("该机构下没有 complete 报送。")
+            counts = ingest_status_counts(conn, cik_b)
+            if not counts:
+                st.warning("该机构尚未入库任何报送，请运行 `uv run thirteenf-scrape`。")
+            else:
+                parts = ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+                st.warning(
+                    f"该机构没有 **complete** 报送（当前：{parts}）。"
+                    "常见原因：名称校验未通过或抓取失败，可在「原始数据」Tab 查看 "
+                    "`warnings_json`，修正后带 `--force` 重抓。"
+                )
             return
 
         ifi = pick_selectbox(

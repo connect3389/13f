@@ -10,8 +10,8 @@ import streamlit as st
 from thirteenf.gui.institutions import (
     filing_label_short,
     ingest_rows_for_cik,
-    institution_label,
-    institution_options_df,
+    institution_picker_df,
+    institution_picker_label,
 )
 from thirteenf.gui.widgets import pick_selectbox
 
@@ -29,17 +29,17 @@ def _render_json_or_text(title: str, raw: str | None) -> None:
 
 
 def render(conn: sqlite3.Connection) -> None:
-    df_inst = institution_options_df(conn, None)
+    df_inst = institution_picker_df(conn)
     if df_inst.empty:
-        st.info("无 ingest 记录。")
+        st.info("尚无机构。请先配置 watchlist 并运行抓取。")
         return
 
     st.markdown("##### 1. 选择机构")
-    st.caption("显示至少有一条报送记录的机构。")
+    st.caption("含 watchlist 与库内全部机构。")
     ic = pick_selectbox(
         "机构",
         range(len(df_inst)),
-        format_func=lambda i: institution_label(df_inst.iloc[int(i)]),
+        format_func=lambda i: institution_picker_label(df_inst.iloc[int(i)]),
         label_visibility="collapsed",
         key="tab_raw_inst",
     )

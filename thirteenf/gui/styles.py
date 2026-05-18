@@ -257,18 +257,21 @@ html[data-theme="dark"] .holdings-chg-tip-wrap--out .holdings-chg-ticker {
   line-height: 1.3;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  color: inherit;
+  color: #31333f;
   background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  border: 1px solid rgba(49, 51, 63, 0.2);
   border-radius: 6px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 14px rgba(49, 51, 63, 0.15);
   pointer-events: none;
   transition: opacity 0.12s ease, visibility 0.12s ease;
 }
-html[data-theme="dark"] .holdings-chg-tip-bubble {
-  background: #262730;
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+html[data-theme="dark"] .holdings-chg-tip-bubble,
+.stApp[data-theme="dark"] .holdings-chg-tip-bubble,
+[data-theme="dark"] .holdings-chg-tip-bubble {
+  color: #fafafa;
+  background: #31333f;
+  border-color: rgba(250, 250, 250, 0.28);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
 }
 .holdings-chg-tip-wrap:hover .holdings-chg-tip-bubble,
 .holdings-chg-tip-wrap:focus-within .holdings-chg-tip-bubble {

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from thirteenf.value_scale import value_usd_multiplier
+
+_DEFAULT_WATCHLIST = Path("config/filers_watchlist.yaml")
 
 
 def tab_a_institution_list(conn: sqlite3.Connection) -> pd.DataFrame:
@@ -37,6 +40,93 @@ def tab_a_institution_list(conn: sqlite3.Connection) -> pd.DataFrame:
     if reg.empty and orphans.empty:
         return pd.DataFrame(columns=["cik", "display_name"])
     return pd.concat([reg, orphans], ignore_index=True)
+
+
+def _complete_ciks(conn: sqlite3.Connection) -> set[str]:
+    rows = conn.execute(
+        """
+        SELECT DISTINCT filer_cik FROM ingest_record
+        WHERE status = 'complete'
+        """
+    ).fetchall()
+    return {str(r[0]).strip() for r in rows if r[0]}
+
+
+def institution_picker_df(
+    conn: sqlite3.Connection,
+    watchlist_path: Path | None = _DEFAULT_WATCHLIST,
+) -> pd.DataFrame:
+    """
+    机构下拉：``filer_registry`` + 库内报送 + watchlist 中尚未入库的 CIK。
+    """
+    base = tab_a_institution_list(conn)
+    complete = _complete_ciks(conn)
+    rows: list[dict[str, object]] = []
+    seen: set[str] = set()
+
+    if not base.empty:
+        for _, r in base.iterrows():
+            cik = str(r["cik"]).strip()
+            if not cik or cik in seen:
+                continue
+            seen.add(cik)
+            rows.append(
+                {
+                    "cik": cik,
+                    "display_name": r.get("display_name"),
+                    "has_complete": cik in complete,
+                    "in_db": True,
+                }
+            )
+
+    wl_path = watchlist_path
+    if wl_path is not None and not Path(wl_path).is_file():
+        wl_path = Path.cwd() / wl_path
+    if wl_path is not None and Path(wl_path).is_file():
+        from thirteenf.config import load_watchlist
+
+        _, filers = load_watchlist(Path(wl_path))
+        for f in filers:
+            cik = f.cik10
+            if not cik or cik in seen:
+                continue
+            seen.add(cik)
+            rows.append(
+                {
+                    "cik": cik,
+                    "display_name": f.display_name,
+                    "has_complete": False,
+                    "in_db": False,
+                }
+            )
+
+    if not rows:
+        return pd.DataFrame(columns=["cik", "display_name", "has_complete", "in_db"])
+    out = pd.DataFrame(rows)
+    out["_sort_name"] = out["display_name"].fillna("").astype(str).str.lower()
+    out = out.sort_values(["_sort_name", "cik"]).drop(columns="_sort_name")
+    return out.reset_index(drop=True)
+
+
+def institution_picker_label(row: pd.Series) -> str:
+    base = institution_label_row(row)
+    if bool(row.get("has_complete")):
+        return base
+    if bool(row.get("in_db", True)):
+        return f"{base} · 无 complete"
+    return f"{base} · 未抓取"
+
+
+def ingest_status_counts(conn: sqlite3.Connection, cik: str) -> dict[str, int]:
+    rows = conn.execute(
+        """
+        SELECT status, COUNT(*) FROM ingest_record
+        WHERE filer_cik = ?
+        GROUP BY status
+        """,
+        (str(cik).strip(),),
+    ).fetchall()
+    return {str(s): int(n) for s, n in rows}
 
 
 def institution_label_row(row: pd.Series) -> str:

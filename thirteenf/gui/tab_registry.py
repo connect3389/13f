@@ -13,13 +13,16 @@ from thirteenf.gui.institution_delete import (
     institution_ui_revision,
     render_institution_delete_panel,
 )
-from thirteenf.gui.institutions import institution_label_row, tab_a_institution_list
+from thirteenf.gui.institutions import (
+    institution_picker_df,
+    institution_picker_label,
+)
 
 
 def render(conn: sqlite3.Connection) -> None:
-    df_inst = tab_a_institution_list(conn)
+    df_inst = institution_picker_df(conn)
     if df_inst.empty:
-        st.info("尚无注册机构且无报送记录。请先配置 watchlist 并运行抓取。")
+        st.info("尚无机构。请先配置 watchlist 并运行抓取。")
         with st.expander("filer_registry 全表"):
             df_all_reg = pd.read_sql(
                 "SELECT cik, display_name, updated_at FROM filer_registry ORDER BY cik",
@@ -41,7 +44,7 @@ def render(conn: sqlite3.Connection) -> None:
     ia = pick_selectbox(
         "选择机构",
         range(len(df_inst)),
-        format_func=lambda i: institution_label_row(df_inst.iloc[int(i)]),
+        format_func=lambda i: institution_picker_label(df_inst.iloc[int(i)]),
         key=f"tab_a_inst_{inst_rev}",
     )
     row_inst = df_inst.iloc[int(ia)]
