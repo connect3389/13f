@@ -28,10 +28,7 @@ from thirteenf.value_scale import value_usd_multiplier
 from thirteenf.gui.periods import report_period_display
 from thirteenf.gui.styles import inject_holdings_select_panel_styles
 from thirteenf.gui.filing_price_sync import render_analysis_report_heading
-from thirteenf.gui.institution_delete import (
-    institution_ui_revision,
-    render_institution_delete_panel,
-)
+from thirteenf.gui.institution_delete import institution_ui_revision
 from thirteenf.gui.tab_holdings.reports import (
     render_kpi_banner,
     render_sector_flow,
@@ -66,13 +63,6 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
         row_inst_b = df_inst_b.iloc[int(ib)]
         render_institution_intro(row_inst_b)
         cik_b = str(row_inst_b["cik"])
-        disp_b = row_inst_b.get("display_name")
-        render_institution_delete_panel(
-            conn,
-            cik_b,
-            str(disp_b) if disp_b is not None and str(disp_b).strip() else None,
-            key_prefix="tab_b",
-        )
 
         df_filings = ingest_rows_for_cik(conn, cik_b, statuses=["complete"])
         st.markdown("##### 2. 选择报送（complete）")

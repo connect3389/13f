@@ -140,7 +140,11 @@ cd /path/to/13f
 uv run streamlit run thirteenf/gui/browse.py
 ```
 
-浏览器打开终端里的地址（一般为 `http://localhost:8501`）。请在**项目根**启动；侧栏可改数据库路径。
+浏览器打开终端里的地址（一般为 `http://localhost:8501`）。请在**项目根**启动。
+
+- 主标题：**13F 分析笔记**
+- **机构录入**：输入 CIK（仅数字）及可选中文名/简介，点击抓取；进度含网络失败、CIK 无效等提示
+- `config/filers_watchlist.yaml` 为部署默认列表；GUI 录入写入 `filer_registry`，与 yaml 合并展示
 
 改代码或主数据后：刷新页面；若仍旧数据，在 Streamlit 菜单 **Clear cache** 或重启进程。
 

@@ -23,6 +23,7 @@ def _reset_ui_after_filer_delete() -> int:
         "tab_a_",
         "tab_b_",
         "tab_raw_",
+        "filer_ingest_",
         "holdings_chg_help_",
         "holdings_tbl_help_",
         "sync_filing_prices_",
@@ -63,8 +64,7 @@ def render_institution_delete_panel(
     with st.expander("删除该机构", expanded=False):
         st.warning(
             f"将永久删除 **{label}** 在本库中的全部报送、持仓行，"
-            f"并删除 `data/raw/{cik10}/` 下原始 XML（不可恢复）。"
-            "不会修改 `config/filers_watchlist.yaml`。"
+            f"并删除该机构对应的本地原始 XML（不可恢复）。"
         )
         n_ing = conn.execute(
             "SELECT COUNT(*) FROM ingest_record WHERE filer_cik = ?",

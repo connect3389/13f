@@ -1,8 +1,9 @@
 """
-Streamlit：13F 本地库界面。
+Streamlit：13F 分析笔记。
 
 Tab：
-- **机构与报送**：filer_registry、ingest_record（选机构后筛选）。
+- **机构录入**：输入 CIK（及可选中文名/简介）→ SEC 抓取入库。
+- **机构报送数据管理**：filer_registry、ingest_record（选机构后筛选）。
 - **报表分析**：当前机构 + complete 报送 → KPI、Top10、变动、GICS 行业流、持仓表。
 - **原始数据**：所选报送的 warnings_json、名称校验明细等长字段只读查看。
 
@@ -16,12 +17,20 @@ import streamlit as st
 from thirteenf.db import init_db
 from thirteenf.envload import load_dotenv_if_present
 from thirteenf.gui.connection import cached_conn, default_db_path
-from thirteenf.gui import tab_holdings, tab_raw_data, tab_registry
+from thirteenf.gui import tab_holdings, tab_ingest, tab_raw_data, tab_registry
+
+# st.tabs 标签前用 emoji 作图标（Streamlit 原生 Tab 不支持独立 icon 参数）
+_TAB_LABELS = (
+    "📥 机构录入",
+    "🗂️ 机构报送数据管理",
+    "📊 报表分析",
+    "📄 原始数据",
+)
 
 
 def main() -> None:
     load_dotenv_if_present()
-    st.set_page_config(page_title="13F 本地库", layout="wide")
+    st.set_page_config(page_title="13F 分析笔记", layout="wide")
     st.markdown(
         """
 <style>
@@ -33,7 +42,7 @@ div[data-baseweb="select"] input[aria-autocomplete="list"] {
 """,
         unsafe_allow_html=True,
     )
-    st.title("13F 本地库")
+    st.title("13F 分析笔记")
 
     db = default_db_path()
     if not db.is_file():
@@ -52,7 +61,10 @@ div[data-baseweb="select"] input[aria-autocomplete="list"] {
 
     conn = cached_conn(str(db))
 
-    tab_a, tab_b, tab_c = st.tabs(["机构与报送", "报表分析", "原始数据"])
+    tab_ing, tab_a, tab_b, tab_c = st.tabs(list(_TAB_LABELS))
+
+    with tab_ing:
+        tab_ingest.render(conn, db)
 
     with tab_a:
         tab_registry.render(conn)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -51,6 +52,39 @@ def _complete_ciks(conn: sqlite3.Connection) -> set[str]:
         """
     ).fetchall()
     return {str(r[0]).strip() for r in rows if r[0]}
+
+
+def _registry_meta_by_cik(conn: sqlite3.Connection) -> dict[str, dict[str, str | None]]:
+    out: dict[str, dict[str, str | None]] = {}
+    for row in conn.execute(
+        "SELECT cik, extra_json FROM filer_registry WHERE extra_json IS NOT NULL"
+    ):
+        cik = str(row["cik"]).strip()
+        try:
+            extra = json.loads(row["extra_json"])
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(extra, dict):
+            continue
+        out[cik] = {
+            "name_zh": extra.get("name_zh"),
+            "intro": extra.get("intro"),
+        }
+    return out
+
+
+def _merge_registry_meta(
+    rows: list[dict[str, object]], meta: dict[str, dict[str, str | None]]
+) -> None:
+    for row in rows:
+        cik = str(row["cik"]).strip()
+        m = meta.get(cik)
+        if not m:
+            continue
+        if not row.get("name_zh") and m.get("name_zh"):
+            row["name_zh"] = m["name_zh"]
+        if not row.get("intro") and m.get("intro"):
+            row["intro"] = m["intro"]
 
 
 def _merge_watchlist_meta(
@@ -131,6 +165,8 @@ def institution_picker_df(
 
     if wl_meta:
         _merge_watchlist_meta(rows, wl_meta)
+
+    _merge_registry_meta(rows, _registry_meta_by_cik(conn))
 
     if not rows:
         return pd.DataFrame(
