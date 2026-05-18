@@ -46,7 +46,7 @@ def watchlist_content_hash(path: Path) -> str:
 def effective_name_verify_mode(cli: str, defaults: dict[str, Any], filer: FilerEntry) -> str:
     """
     CLI --name-verify 优先；否则 defaults.name_verify；
-    再否则：有 display_name -> fail；无 -> warn（仍会做 SEC vs 封面交叉，只做告警）。
+    再否则 warn：抓取已按 CIK 定向，display_name 不参与拦截；fail 时仅 SEC vs 封面 Name。
     """
     if cli and cli != "auto":
         return cli
@@ -55,6 +55,4 @@ def effective_name_verify_mode(cli: str, defaults: dict[str, Any], filer: FilerE
         v = str(d).lower().strip()
         if v in ("off", "warn", "fail"):
             return v
-    if filer.display_name and str(filer.display_name).strip():
-        return "fail"
     return "warn"

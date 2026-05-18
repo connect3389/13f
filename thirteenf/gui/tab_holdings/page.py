@@ -52,7 +52,7 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
     with st.container(border=True, key="holdings_tab_selectors"):
         st.markdown("##### 1. 选择机构")
         st.caption(
-            "含 watchlist 与库内全部机构；后缀 **无 complete** / **未抓取** 表示尚不能做报表分析。"
+            "含 watchlist 与库内全部机构；**本地无 complete** = 本库尚无成功入库报送（与 SEC 是否披露无关）。"
         )
         inst_rev = institution_ui_revision()
         ib = pick_selectbox(

@@ -21,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
         "--name-verify",
         choices=("auto", "off", "warn", "fail"),
         default="auto",
-        help="机构名校验：auto=读 config defaults 或「有 display_name 则 fail 否则 warn」；off 不拦截",
+        help="机构名校验：auto=defaults 或 warn（仅 SEC vs 封面；display_name 不拦截）；off 全关",
     )
     p.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
     p.add_argument("--init-db-only", action="store_true")

@@ -113,7 +113,7 @@ def institution_picker_label(row: pd.Series) -> str:
     if bool(row.get("has_complete")):
         return base
     if bool(row.get("in_db", True)):
-        return f"{base} · 无 complete"
+        return f"{base} · 本地无 complete"
     return f"{base} · 未抓取"
 
 

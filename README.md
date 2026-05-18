@@ -208,7 +208,7 @@ uv run thirteenf-sync-gics-sectors --force-all
 
 ### 名称校验
 
-watchlist 的 `display_name` 与 SEC 不一致时，默认 `auto` 可能 `warn` 或 `fail`。可在 `config/filers_watchlist.yaml` 的 `defaults.name_verify` 或 CLI `--name-verify off` 调整。
+抓取以 **CIK** 为准；`display_name` 仅 GUI 展示，可与 SEC 法定名不同（如括号备注）。默认 `auto` 为 **warn**：仅比对 SEC `submissions.name` 与 13F 封面管理人；要完全关闭用 `defaults.name_verify: off` 或 `--name-verify off`。
 
 ### 数据与命令对照
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import re
 import unicodedata
@@ -39,7 +40,8 @@ def extract_filing_manager_name_from_primary_html(content: bytes) -> str | None:
         re.I,
     )
     if m:
-        return re.sub(r"\s+", " ", m.group(1)).strip()
+        raw = html.unescape(re.sub(r"\s+", " ", m.group(1)).strip())
+        return raw
     return None
 
 
@@ -91,8 +93,9 @@ def verify_filer_identity(
         if names_align(exp, sec):
             messages.append(f"watchlist display_name 与 SEC 一致 ({exp!r})")
         else:
-            blocking.append("display")
-            messages.append(f"watchlist display_name 与 SEC 不符 — 清单 {exp!r} vs SEC {sec!r}")
+            messages.append(
+                f"watchlist display_name 与 SEC 不同（仅展示标签，不拦截）— 清单 {exp!r} vs SEC {sec!r}"
+            )
 
     if cover_primary_name:
         if names_align(cover_primary_name, sec):
