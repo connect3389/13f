@@ -12,6 +12,8 @@ import yaml
 class FilerEntry:
     cik: str
     display_name: str | None
+    name_zh: str | None
+    intro: str | None
     extra: dict[str, Any]
 
     @property
@@ -29,10 +31,12 @@ def load_watchlist(path: Path) -> tuple[dict[str, Any], list[FilerEntry]]:
             FilerEntry(
                 cik=str(row["cik"]).strip().zfill(10) if row.get("cik") else "",
                 display_name=row.get("display_name"),
+                name_zh=row.get("name_zh"),
+                intro=row.get("intro"),
                 extra={
                     k: v
                     for k, v in row.items()
-                    if k not in ("cik", "display_name")
+                    if k not in ("cik", "display_name", "name_zh", "intro")
                 },
             )
         )
@@ -41,6 +45,21 @@ def load_watchlist(path: Path) -> tuple[dict[str, Any], list[FilerEntry]]:
 
 def watchlist_content_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+
+
+def load_watchlist_meta(path: Path) -> dict[str, dict[str, str | None]]:
+    """CIK10 -> display_name / name_zh / intro（供 GUI 合并展示）。"""
+    _, filers = load_watchlist(path)
+    out: dict[str, dict[str, str | None]] = {}
+    for f in filers:
+        if not f.cik10:
+            continue
+        out[f.cik10] = {
+            "display_name": f.display_name,
+            "name_zh": f.name_zh,
+            "intro": f.intro,
+        }
+    return out
 
 
 def effective_name_verify_mode(cli: str, defaults: dict[str, Any], filer: FilerEntry) -> str:

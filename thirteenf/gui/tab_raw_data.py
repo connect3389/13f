@@ -12,6 +12,7 @@ from thirteenf.gui.institutions import (
     ingest_rows_for_cik,
     institution_picker_df,
     institution_picker_label,
+    render_institution_intro,
 )
 from thirteenf.gui.widgets import pick_selectbox
 
@@ -43,7 +44,9 @@ def render(conn: sqlite3.Connection) -> None:
         label_visibility="collapsed",
         key="tab_raw_inst",
     )
-    cik = str(df_inst.iloc[int(ic)]["cik"])
+    row_inst = df_inst.iloc[int(ic)]
+    render_institution_intro(row_inst)
+    cik = str(row_inst["cik"])
 
     df_raw = ingest_rows_for_cik(conn, cik, statuses=None)
     st.markdown("##### 2. 选择报送")

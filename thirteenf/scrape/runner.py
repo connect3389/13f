@@ -33,7 +33,16 @@ def _upsert_filer_registry(conn: sqlite3.Connection, f: FilerEntry) -> None:
             f.cik10,
             None,
             f.display_name,
-            json.dumps(f.extra, ensure_ascii=False) if f.extra else None,
+            json.dumps(
+                {
+                    **f.extra,
+                    **({"name_zh": f.name_zh} if f.name_zh else {}),
+                    **({"intro": f.intro} if f.intro else {}),
+                },
+                ensure_ascii=False,
+            )
+            if (f.extra or f.name_zh or f.intro)
+            else None,
         ),
     )
 

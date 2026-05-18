@@ -58,7 +58,7 @@ uv run python -m thirteenf.cli --init-db-only
 
 ### 2.2 配置机构
 
-编辑 `config/filers_watchlist.yaml`（每行至少 `cik`；`display_name` 建议与 SEC 登记名一致）。  
+编辑 `config/filers_watchlist.yaml`（每行至少 `cik`；可选 `display_name`、`name_zh`、`intro` 供 GUI 展示）。  
 CIK 可在 [SEC EDGAR Company Search](https://www.sec.gov/edgar/searchedgar/companysearch) 查询（13F 看**管理人法人**，不是基金经理个人名）。
 
 ### 2.3 首次抓取 13F

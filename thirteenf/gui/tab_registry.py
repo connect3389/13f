@@ -16,6 +16,7 @@ from thirteenf.gui.institution_delete import (
 from thirteenf.gui.institutions import (
     institution_picker_df,
     institution_picker_label,
+    render_institution_intro,
 )
 
 
@@ -48,6 +49,7 @@ def render(conn: sqlite3.Connection) -> None:
         key=f"tab_a_inst_{inst_rev}",
     )
     row_inst = df_inst.iloc[int(ia)]
+    render_institution_intro(row_inst)
     cik_a = str(row_inst["cik"])
     disp_a = row_inst.get("display_name")
 

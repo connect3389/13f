@@ -1,4 +1,4 @@
-# SEC EDGAR 抓取：每行至少 cik；display_name 等可选
+# 每行至少 cik；display_name（英文标签）、name_zh（中文名）、intro（一句话简介）仅用于 GUI
 # defaults.name_verify: off | warn | fail（可选；CLI 优先）。抓取按 CIK，display_name 可带备注，不参与拦截。
 # https://aum13f.com/ cik查询站点
 defaults:
@@ -7,15 +7,55 @@ defaults:
 filers:
   - cik: "0002045724"
     display_name: Situational Awareness Lp
+    name_zh: 情境觉知资本
+    intro: AI 与算力主题对冲基金（Aschenbrenner），近年 13F 重仓能源、半导体与云基础设施链。
+
   - cik: "0001697748"
     display_name: ARK Investment Management LLC
+    name_zh: 方舟投资
+    intro: Cathie Wood 旗下主动型资管，以 disruptive innovation ETF 与高波动科技股闻名。
+
   - cik: "0001067983"
     display_name: BERKSHIRE HATHAWAY INC
+    name_zh: 伯克希尔哈撒韦
+    intro: 巴菲特执掌的控股与投资巨头，13F 披露其保险浮存金投资的上市股权组合。
+
   - cik: "0001052192"
     display_name: Cascade Investment (Bill Gates)
+    name_zh: 卡斯卡德投资
+    intro: 比尔盖茨个人投资载体，长期持有大型蓝筹与部分多元化仓位。
+
   - cik: "0001336528"
     display_name: Pershing Square Capital Management (Bill Ackman)
+    name_zh: 潘兴广场资本
+    intro: Bill Ackman 旗下激进价值对冲基金，常集中少数标的并公开表达观点。
+
   - cik: "0001387322"
     display_name: Whale Rock Capital Management LLC
+    name_zh: 鲸岩资本
+    intro: 波士顿科技成长对冲基金，偏好高成长软件与互联网龙头。
+
   - cik: "0001759760"
     display_name: H&H International Investment (段永平)
+    name_zh: 高毅国际（H&H）
+    intro: 段永平关联的香港注册投资顾问，美股 13F 以大型科技股集中持仓为特点。
+
+  - cik: "0002046333"
+    display_name: Oriental Harbor Investment Master Fund (但斌)
+    name_zh: 东方港湾
+    intro: 但斌旗下东方港湾主基金，披露美股多头组合，偏重优质成长与科技龙头。
+
+  - cik: "0001167483"
+    display_name: Tiger Global Management LLC (老虎基金)
+    name_zh: 老虎环球
+    intro: Chase Coleman 创立的科技成长对冲基金，曾深度布局中美互联网与硬科技。
+
+  - cik: "0001581811"
+    display_name: Egerton Capital (UK) LLP (John Armitage)
+    name_zh: 埃格顿资本
+    intro: John Armitage 伦敦价值对冲基金，持股相对集中，偏金融与优质蓝筹。
+
+  - cik: "0000098758"
+    display_name: Torray Investment Partners LLC (Torray Funds)
+    name_zh: 托雷投资
+    intro: 马里兰老牌价值私募，长期红利与价值风格，持仓面较广、换手相对温和。

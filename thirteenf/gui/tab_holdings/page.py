@@ -21,6 +21,7 @@ from thirteenf.gui.institutions import (
     institution_picker_df,
     institution_picker_label,
     load_holding_lines_for_table,
+    render_institution_intro,
     prepare_holdings_display_df,
 )
 from thirteenf.value_scale import value_usd_multiplier
@@ -63,6 +64,7 @@ def render(conn: sqlite3.Connection, db: Path) -> None:
             key=f"tab_b_inst_{inst_rev}",
         )
         row_inst_b = df_inst_b.iloc[int(ib)]
+        render_institution_intro(row_inst_b)
         cik_b = str(row_inst_b["cik"])
         disp_b = row_inst_b.get("display_name")
         render_institution_delete_panel(

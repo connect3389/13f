@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import streamlit as st
 
 from thirteenf.value_scale import value_usd_multiplier
 
@@ -52,6 +53,22 @@ def _complete_ciks(conn: sqlite3.Connection) -> set[str]:
     return {str(r[0]).strip() for r in rows if r[0]}
 
 
+def _merge_watchlist_meta(
+    rows: list[dict[str, object]], meta: dict[str, dict[str, str | None]]
+) -> None:
+    for row in rows:
+        cik = str(row["cik"]).strip()
+        m = meta.get(cik)
+        if not m:
+            continue
+        if not row.get("display_name") and m.get("display_name"):
+            row["display_name"] = m["display_name"]
+        if m.get("name_zh"):
+            row["name_zh"] = m["name_zh"]
+        if m.get("intro"):
+            row["intro"] = m["intro"]
+
+
 def institution_picker_df(
     conn: sqlite3.Connection,
     watchlist_path: Path | None = _DEFAULT_WATCHLIST,
@@ -82,10 +99,20 @@ def institution_picker_df(
     wl_path = watchlist_path
     if wl_path is not None and not Path(wl_path).is_file():
         wl_path = Path.cwd() / wl_path
+    wl_meta: dict[str, dict[str, str | None]] = {}
     if wl_path is not None and Path(wl_path).is_file():
         from thirteenf.config import load_watchlist
 
         _, filers = load_watchlist(Path(wl_path))
+        wl_meta = {
+            f.cik10: {
+                "display_name": f.display_name,
+                "name_zh": f.name_zh,
+                "intro": f.intro,
+            }
+            for f in filers
+            if f.cik10
+        }
         for f in filers:
             cik = f.cik10
             if not cik or cik in seen:
@@ -95,13 +122,20 @@ def institution_picker_df(
                 {
                     "cik": cik,
                     "display_name": f.display_name,
+                    "name_zh": f.name_zh,
+                    "intro": f.intro,
                     "has_complete": False,
                     "in_db": False,
                 }
             )
 
+    if wl_meta:
+        _merge_watchlist_meta(rows, wl_meta)
+
     if not rows:
-        return pd.DataFrame(columns=["cik", "display_name", "has_complete", "in_db"])
+        return pd.DataFrame(
+            columns=["cik", "display_name", "name_zh", "intro", "has_complete", "in_db"]
+        )
     out = pd.DataFrame(rows)
     out["_sort_name"] = out["display_name"].fillna("").astype(str).str.lower()
     out = out.sort_values(["_sort_name", "cik"]).drop(columns="_sort_name")
@@ -130,11 +164,23 @@ def ingest_status_counts(conn: sqlite3.Connection, cik: str) -> dict[str, int]:
 
 
 def institution_label_row(row: pd.Series) -> str:
-    d = row.get("display_name")
     cik = row["cik"]
+    zh = row.get("name_zh")
+    d = row.get("display_name")
+    parts: list[str] = []
+    if zh is not None and str(zh).strip():
+        parts.append(str(zh).strip())
     if d is not None and str(d).strip():
-        return f"{d} · {cik}"
+        parts.append(str(d).strip())
+    if parts:
+        return f"{' · '.join(parts)} · {cik}"
     return str(cik)
+
+
+def render_institution_intro(row: pd.Series) -> None:
+    intro = row.get("intro")
+    if intro is not None and str(intro).strip():
+        st.caption(str(intro).strip())
 
 
 def institution_options_df(
@@ -170,9 +216,16 @@ def institution_label(row: pd.Series) -> str:
 
 
 def filer_display_name_from_inst(df_inst: pd.Series) -> str:
+    zh = df_inst.get("name_zh")
     d = df_inst.get("display_name")
-    if d is not None and str(d).strip():
-        return str(d).strip()
+    z = str(zh).strip() if zh is not None and str(zh).strip() else ""
+    e = str(d).strip() if d is not None and str(d).strip() else ""
+    if z and e:
+        return f"{z}（{e}）"
+    if z:
+        return z
+    if e:
+        return e
     return "（未登记名称）"
 
 
